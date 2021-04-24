@@ -1,0 +1,10 @@
+---
+hierarchy:
+  Makefile: assets/project.mk
+  doc: ''
+  hw:
+    knitkit:
+      build.sc: assets/build.sc
+      src:
+        Main.scala: assets/Main.scala
+    rtl: ''
