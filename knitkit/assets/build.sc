@@ -3,10 +3,8 @@ import ammonite.ops._
 import java.nio.file.Paths
 
 object knitkit extends ScalaModule {
-  def scalaVersion = "2.12.6"
-  def scalacOptions = Seq(
-    "-Xsource:2.11",
-  )
+  def scalaVersion = "2.13.6"
+
   def millSourcePath = super.millSourcePath / ammonite.ops.up
 
   def unmanagedClasspath = T {

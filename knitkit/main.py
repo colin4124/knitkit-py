@@ -7,8 +7,7 @@ import pkg_resources
 import tarfile
 import shutil
 import yaml
-import mill_bin
-import mill_cache
+import knitkit_mill
 import glob
 
 # Check if this is run from a local installation
@@ -61,9 +60,9 @@ class ScratChip:
         knitkit_jar_path = os.path.join(jars_path, 'knitkit.jar')
 
         if not os.path.exists(cache_path):
-            self.extract_cache(mill_cache.source, cache_path)
+            self.extract_cache(knitkit_mill.cache_source, cache_path)
         if not os.path.exists(mill_path):
-            shutil.copyfile(mill_bin.source, mill_path)
+            shutil.copyfile(knitkit_mill.mill_source, mill_path)
         if not os.path.exists(jars_path):
             os.makedirs(jars_path)
         if not os.path.exists(knitkit_jar_path):

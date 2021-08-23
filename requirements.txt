@@ -1,3 +1,2 @@
 pyyaml
-mill-bin
-mill-cache
+knitkit-mill
