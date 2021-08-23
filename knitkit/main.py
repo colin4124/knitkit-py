@@ -118,6 +118,137 @@ class ScratChip:
             else:
                 return yaml.load(file)
 
+    def gen_filelist_str(self, path_list):
+        inc_dir = []
+        res = {
+            "filelist" : [],
+            "dirs"     : [],
+            "files"    : [],
+        }
+        for path in path_list:
+            if isinstance(path, dict):
+                k, v = list(path.items())[0]
+                tag = ''
+                if v == "flat_dir":
+                    flat_files = glob.glob(os.path.abspath(k) + "/*.*v")
+                    if not flat_files:
+                        print("Warn: %s is empty" % k)
+                    res["filelist"].extend([x + "\n" for x in flat_files])
+                    res["files"].extend([x + "\n" for x in flat_files])
+                elif v == 'flat_filelist':
+                    flat_files = read_lines(os.path.abspath(k))
+                    res["filelist"].extend(flat_files)
+                    res["files"].extend(flat_files)
+                elif v == 'is_include_dir':
+                    tag = '+incdir+'
+                    inc_dir.append("%s%s\n" % (tag, os.path.abspath(k)))
+                    res["dirs"].append("%s" % os.path.abspath(k))
+                else:
+                    if v == 'is_library_file':
+                        tag = '-v '
+                        res["files"].append("%s" % os.path.abspath(k))
+                    elif v == 'is_filelist':
+                        tag = '-f '
+                        res["files"].append("%s" % os.path.abspath(k))
+                    elif v == 'is_library_dir':
+                        tag = '-y '
+                        res["dirs"].append("%s" % os.path.abspath(k))
+                    else:
+                        print("Unsupport tag: %s" % v)
+                        sys.exit(-1)
+                    res["filelist"].append("%s%s\n" % (tag, os.path.abspath(k)))
+            else:
+                res["filelist"].append(os.path.abspath(path) + "\n")
+
+        res["filelist"] = inc_dir + res["filelist"]
+        duplicates = set([x for x in res["filelist"] if res["filelist"].count(x) > 1])
+        if duplicates:
+            print("WARN: %s" % " ".join(duplicates))
+        return res
+
+    def gen_filelist_define(self, defines):
+        res = []
+        for define in defines:
+            if isinstance(define, dict):
+                k, v = list(define.items())[0]
+                res.append("+define+%s=%d\n" % (k, v))
+            else:
+                res.append("+define+%s\n" % define)
+
+        return res
+
+    def gen_filelist(self, cfg_path, dest_target):
+        cfg = self.read_yaml(cfg_path)
+        targets = {}
+        yaml_targets = {}
+        for target, v in cfg["filelist"].items():
+            targets[target] = []
+            yaml_targets[target] = {
+                "dirs"  : [],
+                "files" : [],
+            }
+            if "defines" in v:
+                targets[target] += self.gen_filelist_define(v["defines"])
+            if "files" in v:
+                res = self.gen_filelist_str(v["files"])
+                yaml_targets[target]["files"] += res["files"]
+                yaml_targets[target]["dirs" ] += res["dirs" ]
+                targets[target] += res["filelist"]
+            if "includes" in v:
+                for inc_path in v["includes"]:
+                    inc_cfg = self.read_yaml(inc_path)
+                    if "defines" in inc_cfg:
+                        targets[target] += self.gen_filelist_define(inc_cfg["defines"])
+                    if "files" in inc_cfg:
+                        res =  self.gen_filelist_str(inc_cfg["files"])
+                        yaml_targets[target]["files"] += res["files"]
+                        yaml_targets[target]["dirs" ] += res["dirs" ]
+                        targets[target] += res["filelist"]
+
+        # Filesets Logic
+        for target, v in cfg["filelist"].items():
+            if "filesets" in v:
+                filesets = []
+                yaml_filesets = {}
+                for other_target in v["filesets"]:
+                    filesets += targets[other_target]
+                    yaml_targets[target] = {**yaml_targets[other_target], **yaml_targets[target]}
+                targets[target] = filesets + targets[target]
+
+        # Remove specified line by keyword
+        def remove_line(key_list, line):
+            for k in key_list:
+              if k in line:
+                  return []
+            return line
+        for target, v in cfg["filelist"].items():
+            if "exclude" in v:
+                result = []
+                for line in targets[target]:
+                    result += remove_line(v["exclude"], line)
+                targets[target] = result
+
+        dest_dir = "builds/filelist"
+
+        #if not os.path.exists(dest_dir):
+            #os.mkdir(dest_dir)
+        pathlib.Path(dest_dir).mkdir(parents=True, exist_ok=True)
+        if dest_target == "all":
+            for target, v in targets.items():
+                with open("%s/%s.yaml" % (dest_dir, target), 'w') as f:
+                    yaml.dump(yaml_targets[target], f)
+                with open("%s/%s.f" % (dest_dir, target), 'w') as f:
+                    f.writelines(v)
+        elif dest_target in targets:
+            with open("%s/%s.yaml" % (dest_dir, dest_target), 'w') as f:
+                yaml.dump(yaml_targets[dest_target], f)
+            with open("%s/%s.f" % (dest_dir, dest_target), 'w') as f:
+                f.writelines(targets[dest_target])
+        else:
+            print("Not found target: %s" % dest_target)
+            print("Available targets: %s" % " ".join(list(targets.keys())))
+            sys.exit(-1)
+
 def parse_args():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
@@ -126,14 +257,14 @@ def parse_args():
     # Global actions
     parser.add_argument(
         "--version",
-        help="Show the ScratChip version",
+        help="Show the Knitkit version",
         action="version",
         version=__version__,
     )
 
     parser.add_argument(
         "--config",
-        help="ScratChip Configure",
+        help="Knitkit Configure",
         nargs=1,
         default=get_resource_name("assets/default.yaml"),
         type=str,
