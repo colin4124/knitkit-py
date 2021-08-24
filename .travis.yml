@@ -1,6 +1,7 @@
 name: Knitkit CI
 language: python
 script:
+  - make prepare
   - python setup.py bdist_wheel
 before_deploy:
   - export FILE=$(ls dist/*.whl)
