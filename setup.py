@@ -31,7 +31,7 @@ setup(
     setup_requires=["setuptools_scm",],
     install_requires=[
         "knitkit-mill",
-        "pyyaml",
+        "pyyaml>=5.3.1",
     ],
     # Supported Python versions: 3.6+
     python_requires=">=3.6",
