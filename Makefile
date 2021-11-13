@@ -1,4 +1,4 @@
-VER=v0.2
+VER=v0.3
 
 JAR = https://github.com/colin4124/knitkit/releases/download/$(VER)/knitkit.jar
 
